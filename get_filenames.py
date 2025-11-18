@@ -35,18 +35,40 @@ for root, dirs, files in os.walk(search_dir):
 # Sort the file names
 pcm_files.sort()
 
+
+
 # Save to CSV file
 output_csv = os.path.expanduser("~/STT_workspace/data_filepath_and_scripts.csv")
 with open(output_csv, 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.writer(csvfile)
     
     # Write header
-    writer.writerow(['File Path', 'File Name'])
+    writer.writerow(['File Path'])
     # Write data
     for file_path in pcm_files:
-        file_name = os.path.basename(file_path)
-        writer.writerow([file_path, file_name])
+        #file_name = os.path.basename(file_path)
+        writer.writerow([file_path])
 
 print(f"Total .pcm files found: {len(pcm_files)}")
 print(f"CSV file saved to: {output_csv}")
 
+# Read corresponding .txt files and add content to CSV
+output_csv = os.path.expanduser("~/STT_workspace/data_filepath_and_scripts.csv")
+with open(output_csv, 'w', newline='', encoding='euc-kr') as csvfile:
+    writer = csv.writer(csvfile)
+    
+    # Write header
+    writer.writerow(['File Path', 'Text Content'])
+    # Write data
+    for file_path in pcm_files:
+        #file_name = os.path.basename(file_path)
+        txt_path = file_path.rsplit('.', 1)[0] + '.txt' # converts the .pcm filepath name to end as ".txt"  to get the txt script contents. This also ensures we have the same order of the files.
+
+        text_content = ""
+        if os.path.exists(txt_path):
+            with open(txt_path, 'r', encoding='euc-kr') as txtfile: # EUC-KR (Extended Unix Code for Korean) or CP949 (Windows Korean encoding), which are common for Korean text files
+                text_content = txtfile.read()
+        
+        writer.writerow([file_path, text_content])
+
+    
