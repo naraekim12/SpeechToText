@@ -1,5 +1,6 @@
-# # pip3 install pydub
+# # --------------- Run this for a single file conversion ---------------
 
+# # pip3 install pydub
 # from pydub import AudioSegment
 
 # # Replace 'input.pcm' with the path to your PCM file
@@ -40,6 +41,12 @@
 #             print(f"Error converting {filename}: {e}")
 
 # print("Conversion process complete!")
+
+
+
+# # --------------- Run this for a batch file conversion --------------------
+
+
 
 # pip3 install pydub
 # Requires system ffmpeg installed (sudo apt install ffmpeg) or ffmpeg on PATH (Windows)
@@ -99,3 +106,5 @@ if __name__ == "__main__":
 
     batch_convert(inp, outp, args.rate, args.channels, args.pcm_format, recurse=not args.no_recurse)
     print("All done.")
+    print(f"Converted files are in: {outp}")
+    print("Total number of file: ", len(list(outp.rglob("*.wav"))))
