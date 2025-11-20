@@ -1,4 +1,3 @@
-import torch
 # check torch version
 print(torch.__version__)
 # check that GPU is available
@@ -13,7 +12,7 @@ processor = Wav2Vec2Processor.from_pretrained("kresnik/wav2vec2-large-xlsr-korea
 model = Wav2Vec2ForCTC.from_pretrained("kresnik/wav2vec2-large-xlsr-korean").to('cuda')
 
 # The model will be saved inside this directory
-output_dir="./wav2vec2-korean-medical" 
+output_dir="./STT_workspace/wav2vec2-korean-medical" 
 
 # ... inside the Trainer loop ...
 # The Trainer will automatically save checkpoints like:
