@@ -1,4 +1,4 @@
-# ... Fine-tuning on our STT dataset ...
+# --- Fine-tuning on our STT dataset ---
 
 import torchaudio
 from datasets import load_dataset
@@ -61,10 +61,83 @@ if resampled_audio:
     print(f"First 10 samples: {first_audio[:10]}")
 
 # Load dataset from CSV
-csv_path = os.path.expanduser("STT_workspace/data_filepath_and_scripts.csv")
+csv_path = os.path.expanduser("~/STT_workspace/data_filepath_and_scripts.csv")
 dataset = load_dataset("csv", data_files=csv_path, encoding="euc-kr")
 
 # Check the dataset structure
 print(dataset["train"][0])
 # It should show something like: {'File Path': '/home/narae/STT_workspace/PCM_converted_AUDIO+TEXT_BK/LIST00000_F_YJS00_41_Metropolitan_indoors_00000.wav', 'Text Content': '정하경님'}
+
+# --- Initialize processor ---
+
+# Tokenize transcripts (use processor Wav2Vec2Processor for the kresnik model (it bundles feature_extractor + tokenizer) instead of Wav2Vec2Tokenizer)
+from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
+
+# Load the Korean pretrained processor (handles audio preprocessing + text tokenization)
+processor = Wav2Vec2Processor.from_pretrained("kresnik/wav2vec2-large-xlsr-korean")
+
+# Tokenize transcripts -> produce label ids for CTC
+def preprocess_text(batch):
+    # batch["transcript"] is a string or list of strings
+    # use processor.tokenizer to convert to token ids
+    batch["input_ids"] = processor.tokenizer(batch["Text Content"], padding=True, truncation=True).input_ids
+    return batch
+
+# --- Split dataset into Train, Eval, Test ---
+
+from datasets import load_dataset, DatasetDict
+
+# Load the dataset 
+dataset_full = load_dataset("csv", data_files=csv_path, encoding="euc-kr")
+
+# Train split 
+train_temp_split = dataset_full['train'].train_test_split(test_size=0.2, seed=42)
+
+# Split the 20% test set into half validation  and half test 
+val_test_split = train_temp_split['test'].train_test_split(test_size=0.5, seed=42)
+
+# Combine them back into a single DatasetDict for easy handling
+dataset = DatasetDict({
+    'train': train_temp_split['train'],       # 80% of total
+    'validation': val_test_split['train'],    # 10% of total
+    'test': val_test_split['test']            # 10% of total
+})
+
+print(f"Train size: {len(dataset['train'])}")
+print(f"Eval size:  {len(dataset['validation'])}")
+print(f"Test size:  {len(dataset['test'])}")
+
+# Apply preprocessing to the dataset
+# When you call .map() on a DatasetDict, it automatically applies to all 3 splits
+dataset = dataset.map(preprocess_text)
+
+# --- Load model and split into training, evaluation, testing data ---
+
+# Load the pretrained model
+model = Wav2Vec2ForCTC.from_pretrained("kresnik/wav2vec2-large-xlsr-korean").to('cuda')
+
+# Fine-tune model configuration for new vocabulary size (pad_token_id, vocab_size)
+model.config.pad_token_id = processor.tokenizer.pad_token_id 
+model.config.vocab_size = len(processor.tokenizer)
+
+from torch.utils.data import DataLoader
+
+# Define a custom collator
+def data_collator(batch):
+    audio_features = [item["input_values"] for item in batch]
+    labels = [item["labels"] for item in batch]
+    return {"input_values": audio_features, "labels": labels}
+
+# Create DataLoader
+train_loader = DataLoader(
+    dataset['train'], batch_size=16, shuffle=True, collate_fn=data_collator
+)
+
+eval_loader = DataLoader(
+    dataset['validation'], batch_size=16, shuffle=False, collate_fn=data_collator
+)
+
+test_loader = DataLoader(
+    dataset['test'], batch_size=16, shuffle=False, collate_fn=data_collator
+)
 
