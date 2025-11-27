@@ -3,6 +3,8 @@ print(torch.__version__)
 # check that GPU is available
 torch.cuda.is_available()
 
+# pip3 install transformers datasets torchaudio evaluate
+
 from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 from datasets import load_dataset
 import torch

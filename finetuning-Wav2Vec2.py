@@ -1,3 +1,7 @@
+# Install in virtual environment:
+# pip3 install transformers datasets torchaudio
+# pip install torchcodec
+
 # --- Fine-tuning on our STT dataset ---
 
 import torchaudio
@@ -23,6 +27,8 @@ for root, _, files in os.walk(search_dir): # root: current directory path, dirs:
         if fname.lower().endswith(audio_extensions): # if the file ends with .wav
             audio_files.append(os.path.join(root, fname))
 audio_files.sort()
+
+# --- Preprocess audio ---
 
 # load and resample to 16k Hz, convert to mono
 resampled_audio = {}  # create empty dict: filepath -> Tensor (1D, float32): (1D audio tensor)
@@ -75,6 +81,8 @@ from transformers import Wav2Vec2Processor, Wav2Vec2ForCTC
 
 # Load the Korean pretrained processor (handles audio preprocessing + text tokenization)
 processor = Wav2Vec2Processor.from_pretrained("kresnik/wav2vec2-large-xlsr-korean")
+
+# --- Preprocess text ---
 
 # Tokenize transcripts -> produce label ids for CTC
 def preprocess_text(batch):
@@ -141,3 +149,33 @@ test_loader = DataLoader(
     dataset['test'], batch_size=16, shuffle=False, collate_fn=data_collator
 )
 
+# --- Training the model ---
+
+# Trainer API for quick prototyping
+from transformers import TrainingArguments, Trainer
+# pip install accelerate -U
+# pip install 'accelerate>=0.26.0'
+
+training_args = TrainingArguments(
+    output_dir="./results",
+    eval_strategy="steps",
+    save_steps=500,
+    learning_rate=3e-4,
+    per_device_train_batch_size=16,
+    num_train_epochs=5,
+    warmup_steps=500,
+    logging_dir="./logs",
+    fp16=True,  # Mixed precision for faster training on GPUs
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset['train'],
+    eval_dataset=dataset['validation'],
+    tokenizer=processor.tokenizer,
+    data_collator=data_collator,
+)
+
+# Start training
+trainer.train()
