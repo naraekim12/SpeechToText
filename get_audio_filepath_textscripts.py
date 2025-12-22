@@ -59,7 +59,7 @@ with open(output_csv, 'w', newline='', encoding='euc-kr') as csvfile:
     writer = csv.writer(csvfile)
     
     # Write header
-    writer.writerow(['File Path', 'Text Content'])
+    writer.writerow(['File_Path', 'Text_Content'])
     # Write data
     for file_path in wav_files:
         #file_name = os.path.basename(file_path)
