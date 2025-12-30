@@ -141,7 +141,8 @@ training_args = TrainingArguments(
     eval_strategy="steps",
     save_steps=500,
     learning_rate=3e-4,
-    per_device_train_batch_size=16,
+    per_device_train_batch_size=4,     #  lower to 2 if still Out Of Memory
+    gradient_accumulation_steps=4,     # accumulates grads to keep effective batch size (4*4=16)
     num_train_epochs=5,
     warmup_steps=500,
     logging_dir="./logs",
@@ -158,4 +159,26 @@ trainer = Trainer(
 )
 
 # Start training
+print("\n--------------------------------")
+print("Starting fine-tuning...\n")
 trainer.train()
+
+
+# --- Evaluate the model on test set ---
+from evaluate import load
+
+# Load WER metric
+wer_metric = load("wer")
+# Load CER metric
+cer_metric = load("cer")
+
+# Sample predictions and references
+predictions = ["this is a sample prediction"]
+references = ["this is a sample reference"]
+
+# Compute WER
+wer = wer_metric.compute(predictions=predictions, references=references)
+print(f"Word Error Rate: {wer:.2f}")
+# Compute CER
+cer = cer_metric.compute(predictions=predictions, references=references)
+print(f"Character Error Rate: {cer:.2f}")
