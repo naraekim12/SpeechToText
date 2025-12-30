@@ -100,7 +100,7 @@ print("Audio + text preprocessing done!")
 
 
 from torch.utils.data import DataLoader
-# Define a custom collator
+# Define a custom collator: the data collator takes our pre-processed data and prepares PyTorch tensors ready for the model.
 def data_collator(features):
     # features is a list of dicts with "input_values" (list[float]) and "labels" (list[int])
     input_features = [{"input_values": f["input_values"]} for f in features]
@@ -135,18 +135,19 @@ from transformers import TrainingArguments, Trainer
 # pip install accelerate -U
 # pip install 'accelerate>=0.26.0'
 
+# Define all the parameters related to training 
 training_args = TrainingArguments(
     remove_unused_columns=False,
     output_dir="./results",
     eval_strategy="steps",
     save_steps=500,
     learning_rate=3e-4,
-    per_device_train_batch_size=4,     #  lower to 2 if still Out Of Memory
-    gradient_accumulation_steps=4,     # accumulates grads to keep effective batch size (4*4=16)
+    per_device_train_batch_size=4,     # If you experience a CUDA out-of-memory (OOM) when running the above cell, incrementally reduce the `batch_size` by factors of 2 until you find a batch size that fits your device.
+    gradient_accumulation_steps=4,     # Number of updates steps to accumulate the gradients before performing a backward/update pass. Helps stimulate an effective larger batch size (4 gradient_acc_step * 4 batch_size = batch size of 16) than what your GPU memory can actually support
     num_train_epochs=5,
     warmup_steps=500,
     logging_dir="./logs",
-    fp16=True,  # Mixed precision for faster training on GPUs
+    fp16=True,  # Enable mixed precision for faster training on GPUs
 )
 
 trainer = Trainer(
@@ -172,9 +173,33 @@ wer_metric = load("wer")
 # Load CER metric
 cer_metric = load("cer")
 
-# Sample predictions and references
-predictions = ["this is a sample prediction"]
-references = ["this is a sample reference"]
+# Get predictions and references from test set
+import torch
+predictions = []
+references = []
+
+model.eval()
+max_examples = 5
+with torch.no_grad():
+    for batch in test_loader:
+        input_values = batch["input_values"].to(model.device)
+        logits = model(input_values).logits
+        pred_ids = torch.argmax(logits, dim=-1)
+        
+        # Decode predictions
+        preds = processor.batch_decode(pred_ids)
+        predictions.extend(preds)
+        
+        # Decode references
+        labels = batch["labels"].cpu().numpy()
+        labels[labels == -100] = processor.tokenizer.pad_token_id
+        refs = processor.batch_decode(labels, group_tokens=False)
+        references.extend(refs)
+        
+        if len(predictions) >= max_examples:
+            predictions = predictions[:max_examples]
+            references = references[:max_examples]
+            break
 
 # Compute WER
 wer = wer_metric.compute(predictions=predictions, references=references)
